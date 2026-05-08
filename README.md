@@ -31,6 +31,9 @@ Current snapshots include:
 
 ## Stream Contract
 
+The stdio transport accepts one JSON-RPC 2.0 request object per line. JSON-RPC
+batch arrays are not supported and receive an `Invalid Request` response.
+
 `gitseer/subscribe` and resync/error-recovery paths may send full
 `gitseer/snapshot` notifications. `gitseer/getSnapshot` and explicit refreshes
 may return full snapshots in their responses. Ordinary watched repository

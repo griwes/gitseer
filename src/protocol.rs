@@ -10,6 +10,7 @@ use crate::{
 
 const JSONRPC_VERSION: &str = "2.0";
 const PARSE_ERROR: i64 = -32700;
+const INVALID_REQUEST: i64 = -32600;
 const INVALID_PARAMS: i64 = -32602;
 const METHOD_NOT_FOUND: i64 = -32601;
 const INTERNAL_ERROR: i64 = -32603;
@@ -174,18 +175,48 @@ pub fn handle_request(state: &mut ProcessState, line: &str) -> Vec<ServerMessage
             ))];
         }
     };
-    let is_notification = !request_value
-        .as_object()
-        .is_some_and(|object| object.contains_key("id"));
+
+    let request_object = match request_value.as_object() {
+        Some(object) => object,
+        None => {
+            return vec![ServerMessage::Response(error_response(
+                Value::Null,
+                INVALID_REQUEST,
+                "invalid request",
+                Some("JSON-RPC requests must be objects".to_string()),
+            ))];
+        }
+    };
+    let is_notification = !request_object.contains_key("id");
+    let response_id = match request_object.get("id") {
+        Some(id) if !valid_request_id(id) => Value::Null,
+        Some(id) => id.clone(),
+        None => Value::Null,
+    };
+
+    if request_object.get("jsonrpc").and_then(Value::as_str) != Some(JSONRPC_VERSION) {
+        return invalid_request_response(response_id, "jsonrpc must be exactly \"2.0\"");
+    }
+    if !request_object.get("method").is_some_and(Value::is_string) {
+        return invalid_request_response(response_id, "method must be a string");
+    }
+    if request_object
+        .get("id")
+        .is_some_and(|id| !valid_request_id(id))
+    {
+        return invalid_request_response(Value::Null, "id must be a string, number, or null");
+    }
+    if request_object
+        .get("params")
+        .is_some_and(|params| !params.is_null() && !params.is_object() && !params.is_array())
+    {
+        return invalid_request_response(response_id, "params must be an object, array, or null");
+    }
+
     let request = match serde_json::from_value::<JsonRpcRequest>(request_value) {
         Ok(request) => request,
         Err(error) => {
-            return vec![ServerMessage::Response(error_response(
-                Value::Null,
-                PARSE_ERROR,
-                "parse error",
-                Some(error.to_string()),
-            ))];
+            return invalid_request_response(response_id, &error.to_string());
         }
     };
 
@@ -249,6 +280,19 @@ pub fn handle_request(state: &mut ProcessState, line: &str) -> Vec<ServerMessage
     };
 
     response_messages(vec![ServerMessage::Response(response)], is_notification)
+}
+
+fn valid_request_id(id: &Value) -> bool {
+    id.is_null() || id.is_string() || id.is_number()
+}
+
+fn invalid_request_response(id: Value, detail: &str) -> Vec<ServerMessage> {
+    vec![ServerMessage::Response(error_response(
+        id,
+        INVALID_REQUEST,
+        "invalid request",
+        Some(detail.to_string()),
+    ))]
 }
 
 fn response_messages(messages: Vec<ServerMessage>, is_notification: bool) -> Vec<ServerMessage> {

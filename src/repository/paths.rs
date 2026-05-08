@@ -1,12 +1,21 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use git2::{IndexEntryExtendedFlag, IndexEntryFlag, Repository, Status, StatusOptions, StatusShow};
+use git2::{
+    Diff, DiffLineType, DiffOptions, IndexEntryExtendedFlag, IndexEntryFlag, Repository, Status,
+    StatusOptions, StatusShow,
+};
 
 use super::{
-    ConflictSide, ConflictSummary, PathDelta, PathEntry, PathEntryStatus, PathSetDelta, PathState,
-    SnapshotError, SnapshotOptions,
+    ConflictSide, ConflictSummary, PathDelta, PathDiffSummary, PathEntry, PathEntryStatus,
+    PathSetDelta, PathState, SnapshotError, SnapshotOptions,
 };
+
+#[derive(Debug, Default)]
+struct RawDiffSummary {
+    added: usize,
+    removed: usize,
+}
 
 pub(super) fn path_delta(previous: &PathState, current: &PathState) -> PathDelta {
     let previous_entries = path_entry_map(&previous.entries);
@@ -76,6 +85,7 @@ pub(super) fn path_state(
     let mut conflicted = BTreeSet::new();
     let mut entries = Vec::new();
     let conflicts = conflict_summaries(repo)?;
+    let diff_summaries = diff_summaries(repo)?;
 
     for entry in statuses.iter() {
         let status = entry.status();
@@ -110,12 +120,13 @@ pub(super) fn path_state(
                 .index_to_workdir()
                 .and_then(|delta| delta.new_file().path().map(path_to_string)),
             status: path_entry_status(status),
+            diff: diff_summaries.get(&path).cloned().unwrap_or_default(),
         });
         if has_unstaged_status(status) {
             unstaged.insert(path);
         }
     }
-    include_index_flag_entries(repo, &mut entries)?;
+    include_index_flag_entries(repo, &mut entries, &diff_summaries)?;
     entries.sort_by(|a, b| a.path.cmp(&b.path));
 
     Ok(PathState {
@@ -160,6 +171,7 @@ pub(super) fn conflict_summaries(repo: &Repository) -> Result<Vec<ConflictSummar
 pub(super) fn include_index_flag_entries(
     repo: &Repository,
     entries: &mut Vec<PathEntry>,
+    diff_summaries: &BTreeMap<String, PathDiffSummary>,
 ) -> Result<(), SnapshotError> {
     let index = repo.index()?;
     for entry in index.iter() {
@@ -175,12 +187,14 @@ pub(super) fn include_index_flag_entries(
             existing.status.assume_unchanged = assume_unchanged;
             existing.status.skip_worktree = skip_worktree;
         } else {
+            let diff = diff_summaries.get(&path).cloned().unwrap_or_default();
             entries.push(PathEntry {
                 path,
                 staged_old_path: None,
                 staged_new_path: None,
                 workdir_old_path: None,
                 workdir_new_path: None,
+                diff,
                 status: PathEntryStatus {
                     assume_unchanged,
                     skip_worktree,
@@ -190,6 +204,73 @@ pub(super) fn include_index_flag_entries(
         }
     }
     Ok(())
+}
+
+fn diff_summaries(repo: &Repository) -> Result<BTreeMap<String, PathDiffSummary>, SnapshotError> {
+    let mut raw = BTreeMap::new();
+    let head_tree = repo.head().ok().and_then(|head| head.peel_to_tree().ok());
+    let index = repo.index()?;
+
+    let mut staged_opts = DiffOptions::new();
+    staged_opts
+        .include_typechange(true)
+        .recurse_untracked_dirs(false);
+    let staged_diff =
+        repo.diff_tree_to_index(head_tree.as_ref(), Some(&index), Some(&mut staged_opts))?;
+    accumulate_diff_lines(&staged_diff, &mut raw)?;
+
+    let mut workdir_opts = DiffOptions::new();
+    workdir_opts
+        .include_typechange(true)
+        .include_untracked(false)
+        .recurse_untracked_dirs(false);
+    let workdir_diff = repo.diff_index_to_workdir(Some(&index), Some(&mut workdir_opts))?;
+    accumulate_diff_lines(&workdir_diff, &mut raw)?;
+
+    Ok(raw
+        .into_iter()
+        .map(|(path, summary)| (path, summarize_raw_diff(summary)))
+        .collect())
+}
+
+fn accumulate_diff_lines(
+    diff: &Diff<'_>,
+    summaries: &mut BTreeMap<String, RawDiffSummary>,
+) -> Result<(), SnapshotError> {
+    diff.foreach(
+        &mut |_, _| true,
+        None,
+        None,
+        Some(&mut |delta, _, line| {
+            let Some(path) = delta
+                .new_file()
+                .path()
+                .or_else(|| delta.old_file().path())
+                .map(path_to_string)
+            else {
+                return true;
+            };
+
+            let summary = summaries.entry(path).or_default();
+            match line.origin_value() {
+                DiffLineType::Addition => summary.added += line.num_lines() as usize,
+                DiffLineType::Deletion => summary.removed += line.num_lines() as usize,
+                _ => {}
+            }
+            true
+        }),
+    )?;
+
+    Ok(())
+}
+
+fn summarize_raw_diff(raw: RawDiffSummary) -> PathDiffSummary {
+    let changed = raw.added.min(raw.removed);
+    PathDiffSummary {
+        added: raw.added - changed,
+        changed,
+        removed: raw.removed - changed,
+    }
 }
 
 pub(super) fn conflict_side(entry: git2::IndexEntry) -> ConflictSide {

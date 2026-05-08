@@ -44,6 +44,52 @@ fn separates_staged_unstaged_and_untracked_paths() {
 }
 
 #[test]
+fn includes_line_level_diff_summary_for_changed_paths() {
+    let repo = TestRepo::new();
+    repo.write("tracked.txt", "one\ntwo\nthree\n");
+    repo.git(["add", "tracked.txt"]);
+    repo.git(["commit", "-m", "initial"]);
+
+    repo.write("tracked.txt", "one\nTWO\nthree\nfour\n");
+
+    let snapshot = snapshot_repository(repo.path()).unwrap();
+    let entry = snapshot
+        .paths
+        .entries
+        .iter()
+        .find(|entry| entry.path == "tracked.txt")
+        .unwrap();
+
+    assert_eq!(entry.diff.added, 1);
+    assert_eq!(entry.diff.changed, 1);
+    assert_eq!(entry.diff.removed, 0);
+}
+
+#[test]
+fn combines_staged_and_workdir_line_diff_summary() {
+    let repo = TestRepo::new();
+    repo.write("tracked.txt", "one\ntwo\nthree\n");
+    repo.git(["add", "tracked.txt"]);
+    repo.git(["commit", "-m", "initial"]);
+
+    repo.write("tracked.txt", "one\nTWO\nthree\nfour\n");
+    repo.git(["add", "tracked.txt"]);
+    repo.write("tracked.txt", "one\nTWO\nTHREE\nfour\n");
+
+    let snapshot = snapshot_repository(repo.path()).unwrap();
+    let entry = snapshot
+        .paths
+        .entries
+        .iter()
+        .find(|entry| entry.path == "tracked.txt")
+        .unwrap();
+
+    assert_eq!(entry.diff.added, 1);
+    assert_eq!(entry.diff.changed, 2);
+    assert_eq!(entry.diff.removed, 0);
+}
+
+#[test]
 fn omits_ignored_paths_by_default_and_includes_when_requested() {
     let repo = TestRepo::new();
     repo.write(".gitignore", "ignored.txt\n");

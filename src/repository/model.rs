@@ -324,6 +324,16 @@ pub struct PathEntry {
     pub workdir_old_path: Option<String>,
     pub workdir_new_path: Option<String>,
     pub status: PathEntryStatus,
+    #[serde(default)]
+    pub diff: PathDiffSummary,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PathDiffSummary {
+    pub added: usize,
+    pub changed: usize,
+    pub removed: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]

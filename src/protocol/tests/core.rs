@@ -16,6 +16,62 @@ fn initialize_returns_capabilities() {
 }
 
 #[test]
+fn malformed_json_returns_parse_error() {
+    let repo = TestRepo::new();
+    let mut state = ProcessState::new(repo.path());
+
+    let response = only_response(handle_request(&mut state, r#"{"jsonrpc":"2.0""#));
+
+    assert_eq!(response.id, Value::Null);
+    assert_eq!(response.error.unwrap().code, PARSE_ERROR);
+}
+
+#[test]
+fn wrong_jsonrpc_version_returns_invalid_request() {
+    let repo = TestRepo::new();
+    let mut state = ProcessState::new(repo.path());
+
+    let response = only_response(handle_request(
+        &mut state,
+        r#"{"jsonrpc":"1.0","id":"version","method":"initialize"}"#,
+    ));
+
+    assert_eq!(response.id, json!("version"));
+    assert_eq!(response.error.unwrap().code, INVALID_REQUEST);
+}
+
+#[test]
+fn missing_jsonrpc_version_returns_invalid_request() {
+    let repo = TestRepo::new();
+    let mut state = ProcessState::new(repo.path());
+
+    let response = only_response(handle_request(
+        &mut state,
+        r#"{"id":"version","method":"initialize"}"#,
+    ));
+
+    assert_eq!(response.id, json!("version"));
+    assert_eq!(response.error.unwrap().code, INVALID_REQUEST);
+}
+
+#[test]
+fn invalid_request_shapes_use_invalid_request_error() {
+    let repo = TestRepo::new();
+    let mut state = ProcessState::new(repo.path());
+
+    for request in [
+        r#"[]"#,
+        r#"{"jsonrpc":"2.0","id":1}"#,
+        r#"{"jsonrpc":"2.0","id":true,"method":"initialize"}"#,
+        r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":"invalid"}"#,
+    ] {
+        let response = only_response(handle_request(&mut state, request));
+
+        assert_eq!(response.error.unwrap().code, INVALID_REQUEST, "{request}");
+    }
+}
+
+#[test]
 fn get_snapshot_reads_process_repository() {
     let repo = TestRepo::new();
     repo.write("README.md", "hello\n");
