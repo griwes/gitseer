@@ -7,6 +7,28 @@ Neovim-specific. A supervising client spawns one `gitseer` process per Git
 repository, passes the repository path at process start, and communicates over a
 small JSON-RPC 2.0 protocol on stdio.
 
+## Requirements
+
+- Rust 1.85 or newer to build from source (the crate uses Rust 2024 edition)
+- Git and the native dependencies required by the `git2` crate on Linux
+
+Linux is the primary supported and CI-tested platform. Gitseer is in early
+development and currently publishes from `main` without a stable release tag.
+
+## Build and use
+
+```sh
+cargo build --locked --release
+target/release/gitseer capabilities
+target/release/gitseer validate --repo /path/to/repository
+target/release/gitseer snapshot --repo /path/to/repository
+target/release/gitseer serve --repo /path/to/repository
+```
+
+`serve` owns exactly one repository and reads one JSON-RPC request object per
+stdin line. It writes responses and notifications as one JSON object per stdout
+line. Use `gitseer --help` and `gitseer <command> --help` for CLI details.
+
 ## Scope
 
 Gitseer owns:
@@ -75,3 +97,10 @@ cargo fmt --check
 cargo test
 cargo clippy --all-targets --all-features -- -D warnings
 ```
+
+The complete local gate is `scripts/ci/run.sh`.
+
+## License
+
+Apache-2.0. See [`LICENSE`](LICENSE). Dependency license policy is enforced by
+`scripts/ci/check-licenses.py`.
