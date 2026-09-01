@@ -17,20 +17,31 @@ jobs:
     lint:
         runs-on: ubuntu-latest
         timeout-minutes: 30
+        env:
+            RUSTUP_TOOLCHAIN: 1.85.0
         steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@stable
-              with:
-                  components: clippy, rustfmt
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - name: Install minimum Rust toolchain
+              run: rustup toolchain install 1.85.0 --profile minimal --component clippy,rustfmt
             - name: Run lint checks
               run: scripts/ci/lint.sh
+            - name: Validate workflow syntax
+              run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
 
     test:
+        name: test (${{ matrix.rust }})
         runs-on: ubuntu-latest
         timeout-minutes: 30
+        strategy:
+            fail-fast: false
+            matrix:
+                rust: ['1.85.0', 'stable']
+        env:
+            RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
         steps:
-            - uses: actions/checkout@v4
-            - uses: dtolnay/rust-toolchain@stable
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - name: Install Rust toolchain
+              run: rustup toolchain install "${RUSTUP_TOOLCHAIN}" --profile minimal
             - name: Run tests
               run: scripts/ci/test.sh
 
@@ -41,16 +52,17 @@ jobs:
             GITSEER_BIN: ${{ github.workspace }}/target/debug/gitseer
             STRATUM_REQUIRE_GITSEER_INTEGRATION: '1'
         steps:
-            - uses: actions/checkout@v4
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
               with:
                   repository: griwes/stratum.nvim
                   ref: main
                   path: .dependencies/stratum.nvim
-            - uses: dtolnay/rust-toolchain@stable
+            - name: Install stable Rust
+              run: rustup update stable --no-self-update
             - name: Build Gitseer
               run: scripts/ci/build.sh
-            - uses: rhysd/action-setup-vim@v1
+            - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1
               with:
                   neovim: true
                   version: stable
