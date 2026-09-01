@@ -11,3 +11,4 @@ fi
 
 cargo fmt --check
 cargo clippy --locked --all-targets --all-features -- -D warnings
+python3 scripts/ci/check-licenses.py
