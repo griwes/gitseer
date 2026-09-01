@@ -6,17 +6,54 @@ on:
             - main
     pull_request:
 
+permissions:
+    contents: read
+
+concurrency:
+    group: ci-${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
-    test:
+    lint:
         runs-on: ubuntu-latest
+        timeout-minutes: 30
         steps:
             - uses: actions/checkout@v4
             - uses: dtolnay/rust-toolchain@stable
               with:
                   components: clippy, rustfmt
-            - name: Check formatting
-              run: cargo fmt --check
+            - name: Run lint checks
+              run: scripts/ci/lint.sh
+
+    test:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v4
+            - uses: dtolnay/rust-toolchain@stable
             - name: Run tests
-              run: cargo test --locked
-            - name: Run Clippy
-              run: cargo clippy --locked --all-targets --all-features -- -D warnings
+              run: scripts/ci/test.sh
+
+    stratum-compatibility:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        env:
+            GITSEER_BIN: ${{ github.workspace }}/target/debug/gitseer
+            STRATUM_REQUIRE_GITSEER_INTEGRATION: '1'
+        steps:
+            - uses: actions/checkout@v4
+            - uses: actions/checkout@v4
+              with:
+                  repository: griwes/stratum.nvim
+                  ref: main
+                  path: .dependencies/stratum.nvim
+            - uses: dtolnay/rust-toolchain@stable
+            - name: Build Gitseer
+              run: scripts/ci/build.sh
+            - uses: rhysd/action-setup-vim@v1
+              with:
+                  neovim: true
+                  version: stable
+            - name: Run Stratum against this Gitseer checkout
+              working-directory: .dependencies/stratum.nvim
+              run: scripts/ci/test.sh
