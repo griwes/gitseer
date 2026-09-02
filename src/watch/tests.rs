@@ -201,6 +201,19 @@ async fn debounce_drains_pending_bursts() {
     assert!(rx.try_recv().is_err());
 }
 
+#[test]
+fn full_watcher_queue_records_overflow_without_blocking() {
+    let (tx, mut rx) = mpsc::channel::<notify::Result<Event>>(1);
+    let queue_overflowed = AtomicBool::new(false);
+
+    enqueue_event(&tx, &queue_overflowed, Ok(Event::new(EventKind::Any)));
+    enqueue_event(&tx, &queue_overflowed, Ok(Event::new(EventKind::Any)));
+
+    assert!(queue_overflowed.load(Ordering::Acquire));
+    assert!(rx.try_recv().is_ok());
+    assert!(rx.try_recv().is_err());
+}
+
 #[tokio::test]
 async fn repository_watcher_receives_worktree_events() {
     let repo = TestRepo::new();

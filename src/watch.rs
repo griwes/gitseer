@@ -1,5 +1,7 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
@@ -12,6 +14,7 @@ mod classify;
 mod roots;
 
 pub const MAX_DEBOUNCE_DRAIN_EVENTS: usize = 256;
+const MAX_PENDING_WATCH_EVENTS: usize = 4096;
 
 pub use classify::{refresh_plan_for_event, should_refresh_for_event};
 pub use roots::watch_roots_for_snapshot;
@@ -28,6 +31,7 @@ pub enum WatchError {
 pub struct RepositoryWatcher {
     _watcher: RecommendedWatcher,
     rx: mpsc::Receiver<notify::Result<Event>>,
+    queue_overflowed: Arc<AtomicBool>,
     watched_roots: Vec<PathBuf>,
     repo_path: PathBuf,
     worktree_root: Option<PathBuf>,
@@ -40,12 +44,17 @@ impl RepositoryWatcher {
         let repo_path = repo_path.as_ref().to_path_buf();
         let snapshot = snapshot_repository(&repo_path)?;
         let watch_targets = watch_targets_for_snapshot(&snapshot);
-        let (tx, rx) = mpsc::channel(256);
+        // Git operations can produce several hundred useful events before the
+        // async consumer gets a turn. Keep that burst bounded independently of
+        // the smaller per-turn debounce budget.
+        let (tx, rx) = mpsc::channel(MAX_PENDING_WATCH_EVENTS);
+        let queue_overflowed = Arc::new(AtomicBool::new(false));
+        let callback_overflowed = Arc::clone(&queue_overflowed);
         let mut watcher = notify::recommended_watcher(move |event| {
             if !classify::should_refresh_for_event(&event) {
                 return;
             }
-            let _ = tx.blocking_send(event);
+            enqueue_event(&tx, &callback_overflowed, event);
         })?;
 
         let mut watched_roots = Vec::with_capacity(watch_targets.len());
@@ -57,6 +66,7 @@ impl RepositoryWatcher {
         Ok(Self {
             _watcher: watcher,
             rx,
+            queue_overflowed,
             watched_roots,
             repo_path,
             worktree_root: snapshot.identity.worktree_root,
@@ -70,11 +80,20 @@ impl RepositoryWatcher {
     }
 
     pub async fn next_event(&mut self) -> Option<notify::Result<Event>> {
+        if self.take_queue_overflow() {
+            return Some(Err(notify::Error::generic(
+                "repository watcher event queue overflowed",
+            )));
+        }
         let event = self.rx.recv().await;
         if let Some(event) = &event {
             self.update_watches_for_event(event).await;
         }
         event
+    }
+
+    fn take_queue_overflow(&self) -> bool {
+        self.queue_overflowed.swap(false, Ordering::AcqRel)
     }
 
     pub async fn debounce_plan(&mut self, initial: RefreshPlan, duration: Duration) -> RefreshPlan {
@@ -90,6 +109,16 @@ impl RepositoryWatcher {
             &self.git_dir,
             &self.common_dir,
         )
+    }
+}
+
+fn enqueue_event(
+    tx: &mpsc::Sender<notify::Result<Event>>,
+    queue_overflowed: &AtomicBool,
+    event: notify::Result<Event>,
+) {
+    if matches!(tx.try_send(event), Err(mpsc::error::TrySendError::Full(_))) {
+        queue_overflowed.store(true, Ordering::Release);
     }
 }
 
@@ -227,6 +256,9 @@ fn event_can_create_directory_watch(event: &Event) -> bool {
 }
 
 async fn drain_pending_plan(watcher: &mut RepositoryWatcher, initial: RefreshPlan) -> RefreshPlan {
+    if watcher.take_queue_overflow() {
+        return RefreshPlan::Full;
+    }
     let mut plan = initial;
     let mut drained = 0;
     while let Ok(event) = watcher.rx.try_recv() {
@@ -239,7 +271,11 @@ async fn drain_pending_plan(watcher: &mut RepositoryWatcher, initial: RefreshPla
             break;
         }
     }
-    plan
+    if watcher.take_queue_overflow() {
+        RefreshPlan::Full
+    } else {
+        plan
+    }
 }
 
 #[cfg(test)]
