@@ -64,11 +64,12 @@ Current snapshots include:
 The stdio transport accepts one JSON-RPC 2.0 request object per line. JSON-RPC
 batch arrays are not supported and receive an `Invalid Request` response.
 
-`gitseer/subscribe` and resync/error-recovery paths may send full
-`gitseer/snapshot` notifications. `gitseer/getSnapshot` and explicit refreshes
-may return full snapshots in their responses. Ordinary watched repository
-updates produce `gitseer/delta` notifications. Full snapshots are reserved for
-the explicit and recovery paths, including watcher overflow or rescan recovery.
+`gitseer/subscribe` sends a full `gitseer/snapshot` notification and establishes
+a new baseline. `gitseer/getSnapshot` and explicit refreshes return full
+snapshots in their responses. Once a baseline exists, automatic watched updates
+produce `gitseer/delta` notifications. Watcher overflow or rescan recovery reads
+a full repository snapshot, then encodes every observed change as a versioned
+delta against that baseline.
 
 Deltas are the primary steady-state communication shape. They carry monotonic
 version information so a client can detect missed, duplicate, or out-of-order
