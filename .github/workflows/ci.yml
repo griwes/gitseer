@@ -18,11 +18,11 @@ jobs:
         runs-on: ubuntu-26.04
         timeout-minutes: 30
         env:
-            RUSTUP_TOOLCHAIN: 1.85.0
+            RUSTUP_TOOLCHAIN: 1.98.0
         steps:
             - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
             - name: Install minimum Rust toolchain
-              run: rustup toolchain install 1.85.0 --profile minimal --component clippy,rustfmt
+              run: rustup toolchain install 1.98.0 --profile minimal --component clippy,rustfmt
             - name: Run lint checks
               run: scripts/ci/lint.sh
             - name: Validate workflow syntax
@@ -35,7 +35,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                rust: ['1.85.0', 'stable']
+                rust: ['1.98.0', 'stable']
         env:
             RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
         steps:

@@ -9,7 +9,7 @@ small JSON-RPC 2.0 protocol on stdio.
 
 ## Requirements
 
-- Rust 1.85 or newer to build from source (the crate uses Rust 2024 edition)
+- Rust 1.98 or newer to build from source
 - Git and the native dependencies required by the `git2` crate on Linux
 
 Linux is the primary supported and CI-tested platform. Gitseer is in early

@@ -6,7 +6,7 @@ Contributions are accepted under Apache-2.0. Do not copy source from a project u
 
 ## Development
 
-- Install Rust 1.85 or newer.
+- Install Rust 1.98 or newer.
 - Run `scripts/ci/run.sh` before submitting a change. It checks formatting, Clippy, tests, the build, and dependency licenses.
 - Keep `Cargo.lock` synchronized with `Cargo.toml`.
 
@@ -15,4 +15,3 @@ Keep changes focused and include tests for observable behavior. Use your configu
 ## Pull requests
 
 Describe the user-visible behavior, compatibility implications, and validation performed. Update the README and Vim help when public configuration, commands, or APIs change. Security-sensitive changes should explain the trust boundary they alter without publishing an active vulnerability.
-
