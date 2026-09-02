@@ -17,7 +17,7 @@ pub(super) fn repository_identity(repo: &Repository) -> Result<RepositoryIdentit
         worktree_root,
         git_dir,
         common_dir,
-        namespace: repo.namespace().map(ToString::to_string),
+        namespace: repo.namespace().ok().flatten().map(ToString::to_string),
         is_bare: repo.is_bare(),
         is_empty: repository_is_empty(repo)?,
         is_shallow: repo.is_shallow(),
@@ -42,14 +42,14 @@ pub(super) fn head_state(repo: &Repository) -> Result<HeadState, SnapshotError> 
             if head.is_branch() {
                 Ok(HeadState {
                     kind: HeadKind::Attached,
-                    name: head.name().map(ToString::to_string),
-                    branch: head.shorthand().map(ToString::to_string),
+                    name: head.name().ok().map(ToString::to_string),
+                    branch: head.shorthand().ok().map(ToString::to_string),
                     oid,
                 })
             } else {
                 Ok(HeadState {
                     kind: HeadKind::Detached,
-                    name: head.name().map(ToString::to_string),
+                    name: head.name().ok().map(ToString::to_string),
                     branch: None,
                     oid,
                 })
@@ -94,9 +94,9 @@ pub(super) fn commit_summary(repo: &Repository, oid: git2::Oid) -> Option<Commit
     Some(CommitSummary {
         oid: commit.id().to_string(),
         parent_oids: commit.parent_ids().map(|oid| oid.to_string()).collect(),
-        summary: commit.summary().map(ToString::to_string),
-        author_name: author.name().map(ToString::to_string),
-        author_email: author.email().map(ToString::to_string),
+        summary: commit.summary().ok().flatten().map(ToString::to_string),
+        author_name: author.name().ok().map(ToString::to_string),
+        author_email: author.email().ok().map(ToString::to_string),
         time_seconds: commit.time().seconds(),
     })
 }

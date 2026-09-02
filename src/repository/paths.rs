@@ -89,7 +89,7 @@ pub(super) fn path_state(
 
     for entry in statuses.iter() {
         let status = entry.status();
-        let Some(path) = entry.path().map(ToString::to_string) else {
+        let Ok(path) = entry.path().map(ToString::to_string) else {
             continue;
         };
 

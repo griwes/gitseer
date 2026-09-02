@@ -9,7 +9,7 @@ description = "Single-repository Git state worker for editor and tooling integra
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
-git2 = "0.20"
+git2 = "0.21"
 notify = "8"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

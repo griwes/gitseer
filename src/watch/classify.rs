@@ -373,5 +373,5 @@ fn is_current_branch_ref(repo_path: &Path, ref_path: &str) -> bool {
     let Ok(head) = repo.head() else {
         return false;
     };
-    head.shorthand().is_some_and(|head| head == branch_name)
+    head.shorthand().is_ok_and(|head| head == branch_name)
 }

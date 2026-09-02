@@ -8,23 +8,27 @@ use super::{
 
 pub(super) fn remotes(repo: &Repository) -> Result<Vec<RemoteSummary>, SnapshotError> {
     let mut remotes = Vec::new();
-    for name in repo.remotes()?.iter().flatten() {
+    for name in repo
+        .remotes()?
+        .iter()
+        .filter_map(|name| name.ok().flatten())
+    {
         let remote = repo.find_remote(name)?;
         remotes.push(RemoteSummary {
             name: name.to_string(),
-            url: remote.url().map(ToString::to_string),
-            push_url: remote.pushurl().map(ToString::to_string),
+            url: remote.url().ok().map(ToString::to_string),
+            push_url: remote.pushurl().ok().flatten().map(ToString::to_string),
             default_branch: remote_default_branch(repo, name),
             fetch_refspecs: remote
                 .fetch_refspecs()?
                 .iter()
-                .flatten()
+                .filter_map(|refspec| refspec.ok().flatten())
                 .map(ToString::to_string)
                 .collect(),
             push_refspecs: remote
                 .push_refspecs()?
                 .iter()
-                .flatten()
+                .filter_map(|refspec| refspec.ok().flatten())
                 .map(ToString::to_string)
                 .collect(),
         });
@@ -37,7 +41,7 @@ pub(super) fn remote_default_branch(repo: &Repository, remote_name: &str) -> Opt
     let reference = repo
         .find_reference(&format!("refs/remotes/{remote_name}/HEAD"))
         .ok()?;
-    let target = reference.symbolic_target()?;
+    let target = reference.symbolic_target().ok().flatten()?;
     target
         .strip_prefix(&format!("refs/remotes/{remote_name}/"))
         .map(ToString::to_string)
@@ -99,7 +103,11 @@ pub(super) fn branch_upstream_counts(
 
 pub(super) fn tags(repo: &Repository) -> Result<Vec<TagSummary>, SnapshotError> {
     let mut tags = Vec::new();
-    for name in repo.tag_names(None)?.iter().flatten() {
+    for name in repo
+        .tag_names(None)?
+        .iter()
+        .filter_map(|name| name.ok().flatten())
+    {
         let object = repo.revparse_single(&format!("refs/tags/{name}"))?;
         let summary = if let Some(tag) = object.as_tag() {
             let tagger = tag.tagger();
@@ -111,12 +119,12 @@ pub(super) fn tags(repo: &Repository) -> Result<Vec<TagSummary>, SnapshotError> 
                 target_kind: tag.target_type().and_then(git_object_kind),
                 tagger_name: tagger
                     .as_ref()
-                    .and_then(|tagger| tagger.name().map(ToString::to_string)),
+                    .and_then(|tagger| tagger.name().ok().map(ToString::to_string)),
                 tagger_email: tagger
                     .as_ref()
-                    .and_then(|tagger| tagger.email().map(ToString::to_string)),
+                    .and_then(|tagger| tagger.email().ok().map(ToString::to_string)),
                 tagger_time_seconds: tagger.as_ref().map(|tagger| tagger.when().seconds()),
-                message: tag.message().map(ToString::to_string),
+                message: tag.message().ok().flatten().map(ToString::to_string),
             }
         } else {
             TagSummary {
