@@ -10,8 +10,9 @@ fn rejects_non_repository_paths() {
 }
 
 #[test]
-fn snapshots_empty_repository_identity() {
+fn snapshots_empty_repository_without_assuming_configured_default_branch() {
     let repo = TestRepo::new();
+    repo.git(["config", "init.defaultBranch", "other"]);
 
     let snapshot = snapshot_repository(repo.path()).unwrap();
 

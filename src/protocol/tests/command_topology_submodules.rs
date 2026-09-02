@@ -144,8 +144,7 @@ fn command_shape_submodule_commit_emits_parent_patchable_delta() {
     let baseline_workdir_oid = baseline_submodule.workdir_oid.clone();
 
     let submodule_path = repo.path().join("deps/sub");
-    git_in(&submodule_path, ["config", "commit.gpgsign", "false"]);
-    git_in(&submodule_path, ["config", "tag.gpgsign", "false"]);
+    configure_test_repository(&submodule_path);
     fs::write(submodule_path.join("README.md"), "submodule changed\n").unwrap();
     git_in(&submodule_path, ["add", "README.md"]);
     git_in(&submodule_path, ["commit", "-m", "submodule change"]);
@@ -403,8 +402,7 @@ fn command_shape_nested_submodule_change_emits_parent_patchable_delta() {
     let submodule_path = repo.path().join("deps/sub");
     git_allow_file_protocol_in(&submodule_path, ["submodule", "update", "--init"]);
     let nested_path = submodule_path.join("deps/nested");
-    git_in(&nested_path, ["config", "commit.gpgsign", "false"]);
-    git_in(&nested_path, ["config", "tag.gpgsign", "false"]);
+    configure_test_repository(&nested_path);
     let mut state = ProcessState::new(repo.path());
     let baseline = subscribe_for_deltas(&mut state);
     let baseline_submodule = baseline

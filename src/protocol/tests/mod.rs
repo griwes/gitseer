@@ -268,7 +268,12 @@ fn event_for(path: impl Into<PathBuf>) -> Event {
 
 fn init_bare_repo(path: &Path) {
     let output = Command::new("git")
-        .args(["init", "--bare", path.to_str().unwrap()])
+        .args([
+            "init",
+            "--bare",
+            "--initial-branch=main",
+            path.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(
@@ -324,6 +329,14 @@ fn git_stdout_in<const N: usize>(path: &Path, args: [&str; N]) -> String {
     String::from_utf8(output.stdout).unwrap().trim().to_string()
 }
 
+fn configure_test_repository(path: &Path) {
+    git_in(path, ["config", "user.email", "tester@example.com"]);
+    git_in(path, ["config", "user.name", "Tester"]);
+    git_in(path, ["config", "commit.gpgsign", "false"]);
+    git_in(path, ["config", "tag.gpgsign", "false"]);
+    git_in(path, ["config", "core.editor", "true"]);
+}
+
 fn only_response(messages: Vec<ServerMessage>) -> JsonRpcResponse {
     assert_eq!(messages.len(), 1);
     match messages.into_iter().next().unwrap() {
@@ -341,11 +354,7 @@ impl TestRepo {
         let temp = TempDir::new().unwrap();
         let repo = Self { temp };
         repo.git(["init", "--initial-branch=main"]);
-        repo.git(["config", "user.email", "tester@example.com"]);
-        repo.git(["config", "user.name", "Tester"]);
-        repo.git(["config", "commit.gpgsign", "false"]);
-        repo.git(["config", "tag.gpgsign", "false"]);
-        repo.git(["config", "core.editor", "true"]);
+        configure_test_repository(repo.path());
         repo
     }
 
@@ -364,11 +373,7 @@ impl TestRepo {
             String::from_utf8_lossy(&output.stderr)
         );
         let repo = Self { temp };
-        repo.git(["config", "user.email", "tester@example.com"]);
-        repo.git(["config", "user.name", "Tester"]);
-        repo.git(["config", "commit.gpgsign", "false"]);
-        repo.git(["config", "tag.gpgsign", "false"]);
-        repo.git(["config", "core.editor", "true"]);
+        configure_test_repository(repo.path());
         repo
     }
 
@@ -389,11 +394,7 @@ impl TestRepo {
             String::from_utf8_lossy(&output.stderr)
         );
         let repo = Self { temp };
-        repo.git(["config", "user.email", "tester@example.com"]);
-        repo.git(["config", "user.name", "Tester"]);
-        repo.git(["config", "commit.gpgsign", "false"]);
-        repo.git(["config", "tag.gpgsign", "false"]);
-        repo.git(["config", "core.editor", "true"]);
+        configure_test_repository(repo.path());
         repo
     }
 

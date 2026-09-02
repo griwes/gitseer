@@ -19,10 +19,20 @@ pub(super) fn repository_identity(repo: &Repository) -> Result<RepositoryIdentit
         common_dir,
         namespace: repo.namespace().map(ToString::to_string),
         is_bare: repo.is_bare(),
-        is_empty: repo.is_empty()?,
+        is_empty: repository_is_empty(repo)?,
         is_shallow: repo.is_shallow(),
         is_linked_worktree,
     })
+}
+
+fn repository_is_empty(repo: &Repository) -> Result<bool, SnapshotError> {
+    match repo.head() {
+        Err(error) if error.code() == ErrorCode::UnbornBranch => {
+            Ok(repo.references()?.next().transpose()?.is_none())
+        }
+        Ok(_) => Ok(false),
+        Err(error) => Err(error.into()),
+    }
 }
 
 pub(super) fn head_state(repo: &Repository) -> Result<HeadState, SnapshotError> {
