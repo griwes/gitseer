@@ -64,32 +64,33 @@ Current snapshots include:
 The stdio transport accepts one JSON-RPC 2.0 request object per line. JSON-RPC
 batch arrays are not supported and receive an `Invalid Request` response.
 
-`gitseer/subscribe` and resync/error-recovery paths may send full
-`gitseer/snapshot` notifications. `gitseer/getSnapshot` and explicit refreshes
-may return full snapshots in their responses. Ordinary watched repository
-updates should send `gitseer/delta` notifications, not a full snapshot after
-every delta.
+`gitseer/subscribe` sends a full `gitseer/snapshot` notification and establishes
+a new baseline. `gitseer/getSnapshot` and explicit refreshes return full
+snapshots in their responses. Once a baseline exists, automatic watched updates
+produce `gitseer/delta` notifications. Watcher overflow or rescan recovery reads
+a full repository snapshot, then encodes every observed change as a versioned
+delta against that baseline.
 
-Deltas are the primary steady-state communication shape. They must carry enough
-monotonic version information for a client to detect missed, duplicate, or
-out-of-order updates and request a fresh snapshot. Clients should be able to
-maintain local state by applying deltas without reparsing a complete repository
-snapshot on every file event.
+Deltas are the primary steady-state communication shape. They carry monotonic
+version information so a client can detect missed, duplicate, or out-of-order
+updates and request a fresh snapshot. Clients maintain local state by applying
+deltas without reparsing a complete repository snapshot on every file event.
 
 ## Refresh Contract
 
-Gitseer should not re-query every libgit2-backed state section for every
-repository change. Watcher events should be classified by the Git control files
-or worktree paths that changed, then mapped to targeted state-domain refreshes
-such as path status, index, head, refs, upstream, operation state, remotes,
-stashes, worktrees, submodules, or ignore rules.
+Gitseer classifies watcher events by the Git control files or worktree paths
+that changed, then maps them to targeted state-domain refreshes such as path
+status, index, head, refs, upstream, operation state, remotes, stashes,
+worktrees, submodules, or ignore rules. Unaffected libgit2-backed state sections
+are retained from the previous snapshot.
 
-Recursive worktree watching should remain viable for large repositories. Ignored
-worktree churn must be filtered through Git ignore semantics before refresh work
-is scheduled when ignored-path reporting is disabled. Ignore-rule files remain
-watched inputs: changing `.gitignore`, nested `.gitignore`, `.git/info/exclude`,
-or configured excludes should refresh ignore classification and affected path
-state.
+Worktree coverage uses nonrecursive watches over the relevant directory tree,
+including watches added for newly created directories. When ignored-path
+reporting is disabled, ignored directories are omitted from that watch set and
+ignored worktree churn is filtered through Git ignore semantics. Ignore-rule
+files remain watched inputs: changing `.gitignore`, nested `.gitignore`,
+`.git/info/exclude`, or configured excludes refreshes ignore classification and
+affected path state.
 
 Gitseer does not own:
 
