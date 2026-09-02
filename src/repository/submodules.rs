@@ -14,8 +14,8 @@ pub(super) fn submodules(repo: &Repository) -> Result<Vec<SubmoduleSummary>, Sna
         summaries.push(SubmoduleSummary {
             name,
             path: submodule.path().to_path_buf(),
-            url: submodule.url().map(ToString::to_string),
-            branch: submodule.branch().map(ToString::to_string),
+            url: submodule.url().ok().flatten().map(ToString::to_string),
+            branch: submodule.branch().ok().flatten().map(ToString::to_string),
             head_oid: submodule.head_id().map(|oid| oid.to_string()),
             index_oid: submodule.index_id().map(|oid| oid.to_string()),
             workdir_oid: submodule.workdir_id().map(|oid| oid.to_string()),

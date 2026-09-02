@@ -4,7 +4,11 @@ use super::{SnapshotError, WorktreeSummary};
 
 pub(super) fn worktrees(repo: &Repository) -> Result<Vec<WorktreeSummary>, SnapshotError> {
     let mut worktrees = Vec::new();
-    for name in repo.worktrees()?.iter().flatten() {
+    for name in repo
+        .worktrees()?
+        .iter()
+        .filter_map(|name| name.ok().flatten())
+    {
         let worktree = repo.find_worktree(name)?;
         let (locked, lock_reason) = match worktree.is_locked()? {
             WorktreeLockStatus::Unlocked => (false, None),

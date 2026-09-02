@@ -77,7 +77,7 @@ pub(super) fn bisect_state(repo: &Repository) -> BisectState {
     };
 
     for reference in references.flatten() {
-        let Some(name) = reference.name() else {
+        let Ok(name) = reference.name() else {
             continue;
         };
         let Some(oid) = reference.target().map(|oid| oid.to_string()) else {
