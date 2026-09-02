@@ -62,10 +62,8 @@ jobs:
               run: rustup update stable --no-self-update
             - name: Build Gitseer
               run: scripts/ci/build.sh
-            - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1
-              with:
-                  neovim: true
-                  version: stable
+            - name: Install Neovim
+              run: scripts/ci/install-neovim.sh stable
             - name: Run Stratum against this Gitseer checkout
               working-directory: .dependencies/stratum.nvim
               run: scripts/ci/test.sh
