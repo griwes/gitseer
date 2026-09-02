@@ -16,3 +16,7 @@ There is no guaranteed response SLA while the project is pre-release. Reports wi
 
 Security reports are especially useful for unintended command execution, path traversal, authentication or approval bypass, secret disclosure, unsafe persistence, and denial-of-service behavior caused by untrusted input. The project does not claim to sandbox Neovim, user configuration, installed plugins, Git repositories, or explicitly configured external programs.
 
+The rolling nightly release publishes a SHA-256 checksum beside the Linux
+amd64 executable. The checksum can detect a corrupted download, but because it
+is published by the same workflow and repository as the binary, it is not an
+independent signature or protection against a compromised release process.

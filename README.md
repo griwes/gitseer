@@ -15,6 +15,14 @@ small JSON-RPC 2.0 protocol on stdio.
 Linux is the primary supported and CI-tested platform. Gitseer is in early
 development and currently publishes from `main` without a stable release tag.
 
+## Nightly binary
+
+The rolling `nightly` prerelease publishes a Linux amd64 executable named
+`gitseer-linux-amd64` and a matching `gitseer-linux-amd64.sha256` checksum. The
+nightly tag is rebuilt from the current `main` branch once per day and can also
+be refreshed manually through GitHub Actions. It is a development channel, not
+a stable compatibility promise.
+
 ## Build and use
 
 ```sh
