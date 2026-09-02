@@ -20,7 +20,7 @@ jobs:
         env:
             RUSTUP_TOOLCHAIN: 1.98.0
         steps:
-            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             - name: Install minimum Rust toolchain
               run: rustup toolchain install 1.98.0 --profile minimal --component clippy,rustfmt
             - name: Run lint checks
@@ -39,7 +39,7 @@ jobs:
         env:
             RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
         steps:
-            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
             - name: Install Rust toolchain
               run: rustup toolchain install "${RUSTUP_TOOLCHAIN}" --profile minimal
             - name: Run tests
@@ -52,8 +52,8 @@ jobs:
             GITSEER_BIN: ${{ github.workspace }}/target/debug/gitseer
             STRATUM_REQUIRE_GITSEER_INTEGRATION: '1'
         steps:
-            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-            - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+            - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   repository: griwes/stratum.nvim
                   ref: main
